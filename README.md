@@ -58,7 +58,7 @@ This repository is organized to separate concerns and ensure clarity.
 
 1.  **Clone the Repository:**
     ```bash
-    git clone https://github.com/your-username/agentic-logistics-tra2026.git
+    git clone https://github.com/maksim-tsi/agentic-logistics-tra2026.git
     cd agentic-logistics-tra2026
     ```
 
