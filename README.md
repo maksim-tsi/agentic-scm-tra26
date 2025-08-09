@@ -43,6 +43,7 @@ This repository is organized to separate concerns and ensure clarity.
 -   **`knowledge-base/`**: Stores the raw data used by our tools, such as the structured datapoint definitions.
 -   **`specifications/`**: Contains the detailed technical design documents for each component, serving as the formal documentation for our research.
 -   **`scripts/`**: Any supporting code, such as Python scripts for embedding and populating the Qdrant vector store.
+  **`scripts/`**: Any supporting code, such as Python scripts for integrating with Airtable or other data processing tasks.
 
 ## 4. Getting Started
 
@@ -52,7 +53,18 @@ This repository is organized to separate concerns and ensure clarity.
 -   **API Keys** for the following services:
     -   Google Gemini
     -   Tavily AI
--   Access to a **Qdrant** instance (for future tools requiring a vector store).
+  -   Access to an **Airtable** base (for storing and retrieving structured logistics datapoints, as per [ADR-001](architecture-decisions/001-database-for-structured-datapoints.md)).
+  -   (Qdrant may be considered for future semantic search tools, but Airtable is the primary database for the MVP.)
+## 5. Architecture Decision: Database for Structured Datapoints
+
+As documented in [ADR-001](architecture-decisions/001-database-for-structured-datapoints.md), we have chosen **Airtable** as the primary database for storing and retrieving structured logistics datapoints. Airtable offers:
+
+- Best-in-class metadata filtering and keyword search
+- A user-friendly interface for managing ~1,400 datapoints
+- First-class integration with n8n via a native node
+- A generous free tier suitable for MVP development
+
+Qdrant and other databases may be considered for future, production-scale iterations, especially if semantic search becomes a higher priority.
 
 ### Setup Instructions
 
