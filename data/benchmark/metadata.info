@@ -1,0 +1,14 @@
+CTT (Cognitive Task Templates) — minimal structure notes
+
+This folder stores verified evaluation tasks as JSON or JSONL.
+
+Recommended per-task fields:
+- task_id: unique stable identifier (string)
+- template_id: CTT/template identifier (string)
+- input: task prompt + structured inputs (object)
+- expected: golden answer / rubric / assertions (object)
+- metadata: tags, domain, difficulty, source references (object)
+
+Files:
+- tasks.jsonl (recommended): one JSON object per line, UTF-8
+
