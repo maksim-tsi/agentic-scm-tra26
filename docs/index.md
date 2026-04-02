@@ -13,3 +13,9 @@ Start here when making changes.
 ## RFCs (design history)
 - `docs/rfcs/000-ablation-benchmark-matrix.md` — placeholder for the upcoming evaluation ablation matrix.
 - `docs/rfcs/001-native-tool-calling-evaluator.md` — tool calling evaluator design (strict Pydantic boundary; no code execution).
+
+## Reports
+- `docs/reports/2026-04-02-infra-smoke-test-results.md` — dated implementation and validation results for OpenRouter + Phoenix smoke execution.
+
+## Development Log
+- `docs/DEVLOG.md` — ongoing implementation tracker and developer handoff log.
