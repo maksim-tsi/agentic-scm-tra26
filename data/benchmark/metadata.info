@@ -1,14 +1,35 @@
-CTT (Cognitive Task Templates) — minimal structure notes
+SCM Benchmark Metadata
 
-This folder stores verified evaluation tasks as JSON or JSONL.
+Dataset file:
+- golden_tasks_questions_only.jsonl
 
-Recommended per-task fields:
-- task_id: unique stable identifier (string)
-- template_id: CTT/template identifier (string)
-- input: task prompt + structured inputs (object)
-- expected: golden answer / rubric / assertions (object)
-- metadata: tags, domain, difficulty, source references (object)
+Encoding and format:
+- UTF-8
+- JSONL (one JSON object per line)
 
-Files:
-- tasks.jsonl (recommended): one JSON object per line, UTF-8
+Record count:
+- 119
+
+Per-record schema (all required):
+- task_id: string
+- scenario_context: string
+- agent_prompt: string
+- t_shirt_size: string (S | M | L)
+
+Schema consistency:
+- All records share the same 4-field schema
+- No missing required fields detected
+- No duplicate task_id values detected
+
+t_shirt_size distribution:
+- S: 17
+- M: 49
+- L: 53
+
+Text length stats (characters):
+- scenario_context: min=424, max=1960, mean=835.76
+- agent_prompt: min=335, max=2355, mean=1036.51
+
+Notes:
+- This file is questions-only benchmark input data (no expected answers/rubrics in this artifact).
 
