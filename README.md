@@ -50,9 +50,16 @@ Documentation can evolve, but benchmark question content and imported tool logic
 
 ### Requirements
 
-- Python **3.10+**
+- Python **3.12+** (see `.python-version`)
+- `uv` (recommended) or `pip`
 
-### Install
+### Install (recommended: uv)
+
+```bash
+uv sync --dev --frozen
+```
+
+### Install (fallback: venv + pip)
 
 ```bash
 python -m venv .venv
@@ -77,4 +84,3 @@ Create a local `.env` from the template:
 ```bash
 cp .env.example .env
 ```
-

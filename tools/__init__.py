@@ -5,6 +5,7 @@ Notes:
 - Imported tool modules are treated as read-only in benchmarked evaluation workflows.
 - `tools/registry/` is reserved for future dynamic discovery wiring; registration is
     currently static in this file.
+- The export surface is driven by `tools/active_tools_manifest.json`.
 """
 
 from __future__ import annotations
@@ -48,23 +49,33 @@ from .toc_bottleneck_analysis import (
 from .pert_cpm_variance import (
     aggregate_critical_path_variance as pert_cpm_variance__aggregate_critical_path_variance,
 )
-from .mrp_pegging import mrp_pegging_tracing as mrp_pegging__mrp_pegging_tracing
-from .edd_dispatching import select_edd_job as edd_dispatching__select_edd_job
+from .mrp_pegging import (
+    mrp_pegging_tracing as mrp_pegging__mrp_pegging_tracing,
+)
+from .edd_dispatching import (
+    select_edd_job as edd_dispatching__select_edd_job,
+)
 from .pareto_analysis import (
     apply_pareto_principle as pareto_analysis__apply_pareto_principle,
 )
-from .fmea_rpn import calculate_rpn as fmea_rpn__calculate_rpn
+from .fmea_rpn import (
+    calculate_rpn as fmea_rpn__calculate_rpn,
+)
 from .xbar_s_control_charts import (
     calculate_control_limits as xbar_s_control_charts__calculate_control_limits,
 )
-from .p_chart_ucl import calculate_ucl_p_chart as p_chart_ucl__calculate_ucl_p_chart
+from .p_chart_ucl import (
+    calculate_ucl_p_chart as p_chart_ucl__calculate_ucl_p_chart,
+)
 from .process_capability_cpk import (
     calculate_process_capability_indices as process_capability_cpk__calculate_process_capability_indices,
 )
 from .facility_location_optimizer import (
     optimize_facility_location as facility_location_optimizer__optimize_facility_location,
 )
-from .centroid_location import main as centroid_location__main
+from .centroid_location import (
+    main as centroid_location__main,
+)
 from .ocean_freight_costing import (
     calculate_total_freight_cost as ocean_freight_costing__calculate_total_freight_cost,
 )
@@ -80,7 +91,9 @@ from .kraljic_matrix import (
 from .risk_sharing_contracts import (
     optimize_risk_sharing_contract as risk_sharing_contracts__optimize_risk_sharing_contract,
 )
-from .make_or_buy import make_buy_decision as make_or_buy__make_buy_decision
+from .make_or_buy import (
+    make_buy_decision as make_or_buy__make_buy_decision,
+)
 from .pricing_optimization import (
     optimal_retail_pricing as pricing_optimization__optimal_retail_pricing,
 )

@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Sync deps (locked)
+        run: uv --cache-dir .uv-cache sync --dev --frozen
+
+      - name: Run tests
+        env:
+          PYTHONPATH: src:tools
+        run: uv --cache-dir .uv-cache run pytest

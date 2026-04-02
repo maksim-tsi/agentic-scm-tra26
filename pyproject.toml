@@ -1,0 +1,20 @@
+[project]
+name = "agentic-scm-tra26"
+version = "0.1.0"
+description = "SCM-MAS evaluation harness (TRA 2026)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "pydantic>=2.0.0,<3",
+  "openai",
+  "anthropic",
+  "python-dotenv",
+  "structlog",
+  "numpy",
+  "scipy",
+  "pulp",
+  "pytest",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

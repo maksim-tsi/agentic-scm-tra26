@@ -205,6 +205,9 @@ outputs/*
 .cursorignore
 .cursorindexingignore
 
+# uv
+.uv-cache/
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

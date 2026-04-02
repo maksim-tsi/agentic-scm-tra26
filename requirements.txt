@@ -1,7 +1,9 @@
-pydantic>=2.0
+pydantic>=2.0.0,<3
 openai
 anthropic
 python-dotenv
 structlog
+numpy
+scipy
+pulp
 pytest
-
