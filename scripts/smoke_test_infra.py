@@ -24,6 +24,7 @@ DEFAULT_MODELS = [
 
 PROMPT = "Respond with exactly the text 'SCM-INFRA-OK' and nothing else."
 EXPECTED = "SCM-INFRA-OK"
+DEFAULT_MAX_TOKENS = 128
 
 PARENT_SPAN_NAME = "scm.infra_smoke_test"
 RUN_MODE = "Naive"
@@ -215,6 +216,12 @@ def _force_flush(tracer_provider: Any) -> None:
 
 
 def _span_attr(span: Any, key: str) -> Any:
+    if isinstance(span, dict):
+        attrs = span.get("attributes")
+        if isinstance(attrs, dict):
+            return attrs.get(key)
+        return None
+
     attrs = getattr(span, "attributes", None)
     if isinstance(attrs, dict):
         return attrs.get(key)
@@ -222,6 +229,14 @@ def _span_attr(span: Any, key: str) -> Any:
 
 
 def _span_trace_id(span: Any) -> str | None:
+    if isinstance(span, dict):
+        ctx = span.get("context")
+        if isinstance(ctx, dict):
+            trace_id = ctx.get("trace_id")
+            if isinstance(trace_id, str) and trace_id:
+                return trace_id
+        return None
+
     ctx = getattr(span, "context", None)
     trace_id = getattr(ctx, "trace_id", None)
     if isinstance(trace_id, str) and trace_id:
@@ -230,6 +245,28 @@ def _span_trace_id(span: Any) -> str | None:
 
 
 def _span_output_contains_expected(span: Any) -> bool:
+    if isinstance(span, dict):
+        attrs = span.get("attributes")
+        if not isinstance(attrs, dict):
+            return False
+
+        for key, value in attrs.items():
+            if not isinstance(key, str):
+                continue
+            if "output" not in key.lower() and "response" not in key.lower() and "completion" not in key.lower():
+                continue
+            if isinstance(value, str) and EXPECTED in value:
+                return True
+            if isinstance(value, (list, dict)):
+                try:
+                    rendered = str(value)
+                except Exception:
+                    continue
+                if EXPECTED in rendered:
+                    return True
+
+        return False
+
     attrs = getattr(span, "attributes", None)
     if not isinstance(attrs, dict):
         return False
@@ -289,7 +326,8 @@ def _poll_for_trace(
 
         parent_span = None
         for span in spans:
-            if getattr(span, "name", None) != PARENT_SPAN_NAME:
+            span_name = span.get("name") if isinstance(span, dict) else getattr(span, "name", None)
+            if span_name != PARENT_SPAN_NAME:
                 continue
             if _span_attr(span, "scm.eval.task_id") != config.task_id:
                 continue
@@ -337,11 +375,19 @@ def _run_for_model(config: SmokeConfig, *, tracer_provider: Any, model: str) -> 
         span.set_attribute("scm.eval.run_mode", RUN_MODE)
         span.set_attribute("scm.eval.model_id", model)
 
+        max_tokens_raw = os.getenv("SMOKE_TEST_MAX_TOKENS")
+        max_tokens = DEFAULT_MAX_TOKENS
+        if max_tokens_raw:
+            try:
+                max_tokens = max(1, int(max_tokens_raw))
+            except ValueError:
+                max_tokens = DEFAULT_MAX_TOKENS
+
         resp = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": PROMPT}],
             temperature=0,
-            max_tokens=16,
+            max_tokens=max_tokens,
         )
         content = resp.choices[0].message.content or ""
 
