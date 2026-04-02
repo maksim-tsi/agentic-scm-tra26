@@ -24,6 +24,28 @@ Evaluation harness for comparing **zero-shot “naive” LLMs** (via OpenRouter)
 - `src/utils/` — metric computation (Accuracy, Fidelity Score) and trace processing (Arize Phoenix).
 - `outputs/` — runtime logs, JSON reports, and YAAM memory dumps (not committed).
 
+## Tool Catalog And Discovery
+
+The `tools/` package currently exports active skills through `tools.ACTIVE_TOOLS`.
+This is the runtime registry used by the agentic path.
+
+Properties of the current tool set:
+
+- Deterministic, in-process Python functions.
+- Pydantic-based typed inputs/outputs in each module.
+- No filesystem or network side effects inside tools.
+
+For the full catalog and category breakdown, see `tools/README.md`.
+
+## Read-Only Assets In This Workflow
+
+For evaluation consistency, treat these assets as read-only:
+
+- Tool implementations under `tools/`.
+- Benchmark questions file `data/benchmark/golden_tasks_questions_only.jsonl`.
+
+Documentation can evolve, but benchmark question content and imported tool logic should stay fixed unless you intentionally version a new benchmark/tool release.
+
 ## Setup
 
 ### Requirements

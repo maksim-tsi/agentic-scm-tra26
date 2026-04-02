@@ -44,3 +44,23 @@ wc -l data/benchmark/golden_tasks_questions_only.jsonl
 python3 -c "import json, pathlib; p=pathlib.Path('data/benchmark/golden_tasks_questions_only.jsonl'); [json.loads(x) for x in p.read_text().splitlines() if x.strip()]; print('ok')"
 ```
 
+## Task Families And Tool Coverage
+
+This benchmark is questions-only, but task prompts frequently align with tool families in `tools/`:
+
+- Inventory and replenishment (EOQ, Newsvendor, safety stock, turnover)
+- Planning and scheduling (MPS, MRP, EDD, TOC bottleneck/DBR)
+- Forecasting and demand analysis (moving average, trend, seasonality, bullwhip)
+- Quality and control (xbar-s, p-chart, Cpk, FMEA)
+- Logistics and network optimization (facility/centroid, freight, terminal throughput)
+- Strategic and financial analysis (Kraljic, PESTEL, make-or-buy, pricing, ROA)
+
+This mapping is descriptive guidance for evaluator/tool integration, not a strict per-task label set.
+
+## Read-Only Policy
+
+To preserve reproducibility:
+
+- Treat `golden_tasks_questions_only.jsonl` as immutable benchmark input.
+- If benchmark questions must change, publish a versioned benchmark artifact and update metadata accordingly.
+
