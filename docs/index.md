@@ -12,4 +12,4 @@ Start here when making changes.
 
 ## RFCs (design history)
 - `docs/rfcs/000-ablation-benchmark-matrix.md` — placeholder for the upcoming evaluation ablation matrix.
-
+- `docs/rfcs/001-native-tool-calling-evaluator.md` — tool calling evaluator design (strict Pydantic boundary; no code execution).

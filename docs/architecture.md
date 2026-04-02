@@ -29,3 +29,21 @@ To keep evaluations reproducible:
 - Source of truth for dependencies is `pyproject.toml` + `uv.lock`.
 - `requirements.txt` is a fallback for users who cannot use `uv`.
 
+## Dynamic Tool Retrieval (DTR) Policy
+At the current stage, the evaluation harness uses a **golden registry** of deterministic SCM tools exported via `tools.ACTIVE_TOOLS` (currently 35 tools as of 2026-04-02).
+
+### Why no vector search (yet)?
+Using a vector DB (e.g., Qdrant) to retrieve a subset of tools is **overkill** at this scale:
+
+- Modern model context windows can comfortably fit 35 JSON schemas without meaningful performance degradation.
+- A fixed allowlist reduces complexity and increases reproducibility.
+
+### Current DTR implementation (v0)
+DTR is implemented as **full tool-schema injection**:
+
+- Orchestrator constructs OpenAI-style tool schemas for every tool in `tools.ACTIVE_TOOLS`.
+- Orchestrator passes the entire schema list into the model API call via the `tools` parameter.
+- No retrieval, ranking, or tool filtering is performed.
+
+### Future trigger
+Revisit vector-search DTR only when the tool surface grows enough to pressure context size, latency, or model tool-selection reliability.
