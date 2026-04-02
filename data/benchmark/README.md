@@ -57,6 +57,9 @@ This benchmark is questions-only, but task prompts frequently align with tool fa
 
 This mapping is descriptive guidance for evaluator/tool integration, not a strict per-task label set.
 
+For direct keyword-to-tool routing (e.g., EOQ, MRP, DBR, EDD, Cpk), use the
+Benchmark Keyword Index in `tools/README.md`.
+
 ## Read-Only Policy
 
 To preserve reproducibility:

@@ -81,3 +81,42 @@ Strategic and Financial Analysis:
 In this benchmark workflow, imported tool implementations are treated as read-only.
 If you need behavioral changes, create a versioned update path rather than silently modifying existing benchmarked tool behavior.
 
+## Benchmark Keyword Index
+
+Use this quick index when a benchmark prompt mentions a method by name.
+
+- ABC: [abc_classification.py](abc_classification.py) (`abc_classification__abc_inventory_categorization`)
+- APICS definition check: [apics_rule_check.py](apics_rule_check.py) (`apics_rule_check__validate_scm_reasoning`)
+- Bullwhip effect: [bullwhip_effect.py](bullwhip_effect.py) (`bullwhip_effect__bullwhip_effect_identifier`)
+- Cpk / process capability: [process_capability_cpk.py](process_capability_cpk.py) (`process_capability_cpk__calculate_process_capability_indices`)
+- EDD dispatching: [edd_dispatching.py](edd_dispatching.py) (`edd_dispatching__select_edd_job`)
+- EOQ: [economic_order_quantity.py](economic_order_quantity.py) (`economic_order_quantity__calculate_total_annual_inventory_cost`)
+- FMEA / RPN: [fmea_rpn.py](fmea_rpn.py) (`fmea_rpn__calculate_rpn`)
+- Forecast, moving average: [moving_average.py](moving_average.py) (`moving_average__moving_average_forecast`)
+- Forecast, linear trend: [linear_trend_forecast.py](linear_trend_forecast.py) (`linear_trend_forecast__linear_trend_forecast`)
+- Forecast, seasonality: [seasonal_decomposition.py](seasonal_decomposition.py) (`seasonal_decomposition__calculate_seasonal_indices`)
+- Inventory turnover: [inventory_turnover.py](inventory_turnover.py) (`inventory_turnover__calculate_inventory_turnover`)
+- Kraljic matrix: [kraljic_matrix.py](kraljic_matrix.py) (`kraljic_matrix__kraljic_supply_matrix_classification`)
+- Make or buy: [make_or_buy.py](make_or_buy.py) (`make_or_buy__make_buy_decision`)
+- MPS / PAB: [mps_projected_available_balance.py](mps_projected_available_balance.py) (`mps_projected_available_balance__compute_projected_available_balance`)
+- MRP net requirements: [mrp_net_requirements.py](mrp_net_requirements.py) (`mrp_net_requirements__calculate_net_requirements`)
+- MRP pegging: [mrp_pegging.py](mrp_pegging.py) (`mrp_pegging__mrp_pegging_tracing`)
+- Newsvendor: [newsvendor_model.py](newsvendor_model.py) (`newsvendor_model__evaluate_newsvendor_strategy`)
+- Ocean freight costing: [ocean_freight_costing.py](ocean_freight_costing.py) (`ocean_freight_costing__calculate_total_freight_cost`)
+- p-chart UCL: [p_chart_ucl.py](p_chart_ucl.py) (`p_chart_ucl__calculate_ucl_p_chart`)
+- Pareto (80/20): [pareto_analysis.py](pareto_analysis.py) (`pareto_analysis__apply_pareto_principle`)
+- PERT/CPM variance: [pert_cpm_variance.py](pert_cpm_variance.py) (`pert_cpm_variance__aggregate_critical_path_variance`)
+- PESTEL: [pestel_analysis.py](pestel_analysis.py) (`pestel_analysis__perform_pestel_analysis`)
+- Pricing optimization: [pricing_optimization.py](pricing_optimization.py) (`pricing_optimization__optimal_retail_pricing`)
+- Reorder point / safety stock: [reorder_point_safety_stock.py](reorder_point_safety_stock.py) (`reorder_point_safety_stock__calculate_reorder_point_safety_stock`)
+- Return on assets (ROA): [return_on_assets.py](return_on_assets.py) (`return_on_assets__calculate_return_on_total_assets`)
+- Risk pooling: [risk_pooling.py](risk_pooling.py) (`risk_pooling__demand_aggregation_safety_stock_reduction`)
+- Risk-sharing contracts: [risk_sharing_contracts.py](risk_sharing_contracts.py) (`risk_sharing_contracts__optimize_risk_sharing_contract`)
+- Theory of Constraints / DBR bottleneck: [toc_bottleneck_analysis.py](toc_bottleneck_analysis.py) (`toc_bottleneck_analysis__analyze_toc_scheduling`)
+- Terminal throughput: [terminal_throughput.py](terminal_throughput.py) (`terminal_throughput__calculate_terminal_truck_capacity`)
+- Transport route savings: [transport_route_savings.py](transport_route_savings.py) (`transport_route_savings__calculate_direct_rotation_cost_savings`)
+- Work center load: [work_center_load.py](work_center_load.py) (`work_center_load__calculate_work_center_load`)
+- xbar-s control chart: [xbar_s_control_charts.py](xbar_s_control_charts.py) (`xbar_s_control_charts__calculate_control_limits`)
+- Facility location (discrete): [facility_location_optimizer.py](facility_location_optimizer.py) (`facility_location_optimizer__optimize_facility_location`)
+- Facility location (centroid): [centroid_location.py](centroid_location.py) (`centroid_location__main`)
+
