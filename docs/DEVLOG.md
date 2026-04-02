@@ -24,6 +24,8 @@ Overall status: Active and healthy for smoke path
 | DEV-005 | Harden model output reliability | Completed | 2026-04-02 | Copilot | Increased and parameterized token budget via SMOKE_TEST_MAX_TOKENS |
 | DEV-006 | Execute full default smoke suite | Completed | 2026-04-02 | Copilot | All default models passed in final run |
 | DEV-007 | Publish dated implementation report | Completed | 2026-04-02 | Copilot | Report created in docs/reports |
+| DEV-008 | Implement native tool-calling orchestrator | Completed | 2026-04-02 | Codex | RFC001 loop + RFC002 JSONL + OTel span attributes |
+| DEV-009 | Add orchestrator CLI runner script | Completed | 2026-04-02 | Codex | `scripts/run_orchestrator.py` loads tasks, emits traces + JSONL |
 
 ## Activity Log
 
@@ -34,11 +36,30 @@ Summary:
 - Added required explicit Phoenix API verification as a hard gate for operational health.
 - Resolved two reliability issues in smoke validation logic.
 
+Additional work:
+- Implemented the first-pass orchestrator that follows RFC 001 (native tool calling, strict Pydantic boundary, 5-try ValidationError loop) and RFC 002 (evaluation JSONL output + required `scm.eval.*` span attributes).
+
 Changes made:
 1. scripts/smoke_test_infra.py
 - Added support for dict-based span records returned by Phoenix client.
 - Updated parent span name extraction to support dict and object payloads.
 - Added configurable completion budget using SMOKE_TEST_MAX_TOKENS with a safer default.
+
+2. src/orchestrator_native_tool_calling.py
+- Loads benchmark tasks from `data/benchmark/golden_tasks_questions_only.jsonl` with strict key enforcement.
+- Builds OpenAI tool schemas from `tools.ACTIVE_TOOLS` (Pydantic `Input.model_json_schema()`).
+- Executes RFC001 tool loop in-process (no subprocess), including:
+  - max 5 ValidationError retries
+  - tool execution via allowlisted Python callables
+  - tool-cycle cap to prevent infinite loops
+
+3. scripts/run_orchestrator.py
+- CLI runner for the orchestrator.
+- Initializes Phoenix tracing via `phoenix.otel.register(..., auto_instrument=True)` and attaches required `scm.eval.*` attributes on the parent evaluation span.
+- Appends RFC002 JSONL rows to `outputs/evaluation_results.jsonl` after each task.
+
+How to run (example):
+- `uv run python scripts/run_orchestrator.py --model-id x-ai/grok-4.1-fast --run-mode Tools --task-id newsvendor_covid_port_analysis`
 
 Validation completed:
 - Dependency sync completed with uv lock.
