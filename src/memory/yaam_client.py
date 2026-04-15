@@ -123,6 +123,34 @@ class YaamSemanticClient:
         )
         return out if isinstance(out, dict) else None
 
+    def retrieve_l2_facts(
+        self,
+        *,
+        session_id: str,
+        agent_id: str,
+        task_id: str,
+        traceparent: str | None = None,
+    ) -> list[Any]:
+        payload = {
+            "session_id": session_id,
+            "task_id": task_id,
+            "agent_id": agent_id,
+            "action": "retrieve",
+        }
+        out = self._post_json(
+            "/v2/memory/l2/facts",
+            payload,
+            traceparent=traceparent,
+            swallow_501_502=True,
+        )
+        if out is None:
+            return []
+        if isinstance(out, list):
+            return out
+        if isinstance(out, dict) and isinstance(out.get("results"), list):
+            return list(out["results"])
+        return [out]
+
     def assimilate_l3_knowledge(
         self,
         *,
@@ -205,4 +233,3 @@ class YaamSemanticClient:
             swallow_501_502=True,
         )
         return out if isinstance(out, dict) else None
-

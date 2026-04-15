@@ -13,6 +13,7 @@ from typing import Any, Literal, get_args
 
 from dotenv import load_dotenv
 from langgraph.checkpoint.sqlite import SqliteSaver
+from langchain_core.messages import HumanMessage
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
@@ -282,12 +283,21 @@ def main(argv: list[str]) -> int:
         print(f"IMPORT ERROR: {exc}", file=sys.stderr)
         return 2
 
-    tool_schemas, name_to_callable, name_to_input_model = build_tool_registry(list(tools.ACTIVE_TOOLS))
-
     tasks = load_tasks(Path("data/benchmark/golden_tasks_questions_only.jsonl"))
     selected = _iter_tasks(tasks, task_id=config.task_id, limit=config.limit)
+    tool_schemas: list[dict[str, Any]] = []
+    name_to_callable: dict[str, Any] = {}
+    name_to_input_model: dict[str, Any] = {}
+    client: Any | None = None
+    graph: Any | None = None
 
-    client = _openrouter_client(config)
+    if config.run_mode == "AgenticGraph":
+        from agentic.graph import compile_graph
+
+        graph = compile_graph(checkpointer=checkpointer)
+    else:
+        tool_schemas, name_to_callable, name_to_input_model = build_tool_registry(list(tools.ACTIVE_TOOLS))
+        client = _openrouter_client(config)
 
     from opentelemetry import trace
 
@@ -305,17 +315,69 @@ def main(argv: list[str]) -> int:
             span.set_attribute("scm.eval.run_mode", config.run_mode)
 
             try:
-                raw_response, metrics_obj = run_task(
-                    task=task,
-                    run_mode=config.run_mode,
-                    model_id=config.model_id,
-                    openai_client=client,
-                    tool_schemas=tool_schemas,
-                    name_to_callable=name_to_callable,
-                    name_to_input_model=name_to_input_model,
-                )
-                execution_metrics = metrics_obj.to_json()
-                syntax_errors_caught_for_span = int(execution_metrics["syntax_errors_caught"])
+                if config.run_mode == "AgenticGraph":
+                    assert graph is not None
+                    result = graph.invoke(
+                        {
+                            "task_data": {
+                                "task_id": task.task_id,
+                                "scenario_context": task.scenario_context,
+                                "agent_prompt": task.agent_prompt,
+                            },
+                            "messages": [HumanMessage(content=f"{task.scenario_context}\n\n{task.agent_prompt}".strip())],
+                        },
+                        config={"configurable": {"thread_id": task.task_id, "model_id": config.model_id}},
+                    )
+                    raw_response = str((result or {}).get("final_answer") or "")
+
+                    tools_called: list[str] = []
+                    try:
+                        messages = (result or {}).get("messages", [])
+                        if isinstance(messages, list):
+                            for m in messages:
+                                tool_calls = None
+                                if isinstance(m, dict):
+                                    tool_calls = m.get("tool_calls")
+                                else:
+                                    tool_calls = getattr(m, "tool_calls", None)
+                                    if not tool_calls:
+                                        akw = getattr(m, "additional_kwargs", None)
+                                        if isinstance(akw, dict):
+                                            tool_calls = akw.get("tool_calls")
+                                if isinstance(tool_calls, list):
+                                    for tc in tool_calls:
+                                        if isinstance(tc, dict):
+                                            name = tc.get("name")
+                                            if isinstance(name, str) and name:
+                                                tools_called.append(name)
+                                            else:
+                                                fn = tc.get("function")
+                                                if isinstance(fn, dict):
+                                                    fn_name = fn.get("name")
+                                                    if isinstance(fn_name, str) and fn_name:
+                                                        tools_called.append(fn_name)
+                    except Exception:
+                        tools_called = []
+
+                    execution_metrics = {
+                        "syntax_errors_caught": 0,
+                        "successful_retry_attempt": 0,
+                        "tools_called": tools_called,
+                    }
+                    syntax_errors_caught_for_span = 0
+                else:
+                    assert client is not None
+                    raw_response, metrics_obj = run_task(
+                        task=task,
+                        run_mode=config.run_mode,
+                        model_id=config.model_id,
+                        openai_client=client,
+                        tool_schemas=tool_schemas,
+                        name_to_callable=name_to_callable,
+                        name_to_input_model=name_to_input_model,
+                    )
+                    execution_metrics = metrics_obj.to_json()
+                    syntax_errors_caught_for_span = int(execution_metrics["syntax_errors_caught"])
             except Exception as exc:
                 failures += 1
                 partial_raw_response = _salvage_partial_raw_response(exc, raw_response)
