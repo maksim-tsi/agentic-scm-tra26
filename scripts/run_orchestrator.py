@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Literal, get_args
 
 from dotenv import load_dotenv
+from langgraph.checkpoint.sqlite import SqliteSaver
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
@@ -260,6 +261,9 @@ def main(argv: list[str]) -> int:
     except Exception as exc:
         print(f"CONFIG ERROR: {exc}", file=sys.stderr)
         return 2
+
+    Path("outputs").mkdir(parents=True, exist_ok=True)
+    checkpointer = SqliteSaver.from_conn_string("outputs/langgraph_checkpoints.sqlite")
 
     tracer_provider = None
     if not config.no_tracing:
