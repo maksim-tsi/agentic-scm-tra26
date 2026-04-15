@@ -9,7 +9,7 @@ from typing import Any, Callable, Literal, get_args, get_type_hints
 from pydantic import BaseModel, ValidationError
 
 
-RunMode = Literal["Naive", "Naive+Evidence", "Tools", "Tools+Evidence"]
+RunMode = Literal["Naive", "Naive+Evidence", "Tools", "Tools+Evidence", "AgenticGraph"]
 
 
 MAX_VALIDATION_RETRIES = 5
@@ -338,6 +338,8 @@ def run_task(
     - execution_metrics: syntax_errors_caught, successful_retry_attempt, tools_called
     """
     mode = _coerce_run_mode(run_mode)
+    if mode == "AgenticGraph":
+        raise ValueError("Run mode AgenticGraph must be executed via the LangGraph orchestrator, not run_task().")
 
     try:
         from opentelemetry import trace  # type: ignore

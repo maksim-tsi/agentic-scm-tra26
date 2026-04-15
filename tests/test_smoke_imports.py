@@ -8,7 +8,12 @@ def test_imports_smoke() -> None:
     if src_root not in sys.path:
         sys.path.insert(0, src_root)
 
+    import agentic.state  # noqa: F401
+    import agentic.nodes.planner  # noqa: F401
+    import agentic.nodes.executor  # noqa: F401
+    import agentic.nodes.finalizer  # noqa: F401
+    import agentic.graph  # noqa: F401
     import evaluators.agentic_mas_client  # noqa: F401
     import evaluators.base  # noqa: F401
     import evaluators.naive_llm_client  # noqa: F401
-
+    import memory.yaam_client  # noqa: F401
