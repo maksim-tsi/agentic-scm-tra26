@@ -9,9 +9,9 @@ Standards alignment:
 
 ## Current Status Snapshot
 
-Last updated: 2026-04-02
-Project phase: Infra smoke validation hardening
-Overall status: Active and healthy for smoke path
+Last updated: 2026-04-15
+Project phase: Telemetry + resilience hardening (pre-LangGraph)
+Overall status: Native orchestrator ready for benchmark runs (row-aligned JSONL + optional tracing)
 
 ## Progress Tracker
 
@@ -26,6 +26,7 @@ Overall status: Active and healthy for smoke path
 | DEV-007 | Publish dated implementation report | Completed | 2026-04-02 | Copilot | Report created in docs/reports |
 | DEV-008 | Implement native tool-calling orchestrator | Completed | 2026-04-02 | Codex | RFC001 loop + RFC002 JSONL + OTel span attributes |
 | DEV-009 | Add orchestrator CLI runner script | Completed | 2026-04-02 | Codex | `scripts/run_orchestrator.py` loads tasks, emits traces + JSONL |
+| DEV-010 | Telemetry + resilience hardening | Completed | 2026-04-15 | Codex | trace propagation, 1 task = 1 session, dual JSONL debug fallback, `--no-tracing` |
 
 ## Activity Log
 
@@ -69,6 +70,24 @@ Validation completed:
 
 Related report:
 - docs/reports/2026-04-02-infra-smoke-test-results.md
+
+### 2026-04-15
+
+Summary:
+- Implemented strict “1 Task = 1 Session” mapping for Phoenix via `session.id = "task-<task_id>"`.
+- Added best-effort W3C trace propagation into OpenRouter calls via `extra_headers` (`traceparent` + `x-trace-id`).
+- Hardened benchmark runner resilience:
+  - Tracing init failure no longer aborts the benchmark (warns and continues).
+  - Added `--no-tracing` flag.
+  - Added dual JSONL outputs with row alignment guarantees:
+    - `outputs/evaluation_results.jsonl` remains RFC002 strict and always emits 1 row per task (fallback row on exception).
+    - `outputs/evaluation_results_debug.jsonl` captures exceptions with traceback and partial response salvage.
+
+Validation completed:
+- Added and ran a pytest that intentionally raises inside `run_task` and confirms:
+  - main JSONL stays row-aligned (fallback row written)
+  - debug JSONL receives the rich postmortem row
+  - main loop continues to subsequent tasks
 
 ## Open Follow-Ups
 
