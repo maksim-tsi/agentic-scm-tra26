@@ -264,7 +264,6 @@ def main(argv: list[str]) -> int:
         return 2
 
     Path("outputs").mkdir(parents=True, exist_ok=True)
-    checkpointer = SqliteSaver.from_conn_string("outputs/langgraph_checkpoints.sqlite")
 
     tracer_provider = None
     if not config.no_tracing:
@@ -291,11 +290,7 @@ def main(argv: list[str]) -> int:
     client: Any | None = None
     graph: Any | None = None
 
-    if config.run_mode == "AgenticGraph":
-        from agentic.graph import compile_graph
-
-        graph = compile_graph(checkpointer=checkpointer)
-    else:
+    if config.run_mode != "AgenticGraph":
         tool_schemas, name_to_callable, name_to_input_model = build_tool_registry(list(tools.ACTIVE_TOOLS))
         client = _openrouter_client(config)
 
@@ -304,122 +299,131 @@ def main(argv: list[str]) -> int:
     tracer = trace.get_tracer(__name__)
 
     failures = 0
-    for task in selected:
-        syntax_errors_caught_for_span: int | None = None
-        raw_response = ""
-        execution_metrics = {"syntax_errors_caught": 0, "successful_retry_attempt": 0, "tools_called": []}
+    with SqliteSaver.from_conn_string("outputs/langgraph_checkpoints.sqlite") as memory:
+        if config.run_mode == "AgenticGraph":
+            from agentic.graph import compile_graph
 
-        with tracer.start_as_current_span("scm.eval.task") as span:
-            span.set_attribute("scm.eval.task_id", task.task_id)
-            span.set_attribute("scm.eval.model_id", config.model_id)
-            span.set_attribute("scm.eval.run_mode", config.run_mode)
+            graph = compile_graph(checkpointer=memory)
 
-            try:
-                if config.run_mode == "AgenticGraph":
-                    assert graph is not None
-                    result = graph.invoke(
-                        {
-                            "task_data": {
-                                "task_id": task.task_id,
-                                "scenario_context": task.scenario_context,
-                                "agent_prompt": task.agent_prompt,
-                            },
-                            "messages": [HumanMessage(content=f"{task.scenario_context}\n\n{task.agent_prompt}".strip())],
-                        },
-                        config={"configurable": {"thread_id": task.task_id, "model_id": config.model_id}},
-                    )
-                    raw_response = str((result or {}).get("final_answer") or "")
+        for task in selected:
+            syntax_errors_caught_for_span: int | None = None
+            raw_response = ""
+            execution_metrics = {"syntax_errors_caught": 0, "successful_retry_attempt": 0, "tools_called": []}
 
-                    tools_called: list[str] = []
-                    try:
-                        messages = (result or {}).get("messages", [])
-                        if isinstance(messages, list):
-                            for m in messages:
-                                tool_calls = None
-                                if isinstance(m, dict):
-                                    tool_calls = m.get("tool_calls")
-                                else:
-                                    tool_calls = getattr(m, "tool_calls", None)
-                                    if not tool_calls:
-                                        akw = getattr(m, "additional_kwargs", None)
-                                        if isinstance(akw, dict):
-                                            tool_calls = akw.get("tool_calls")
-                                if isinstance(tool_calls, list):
-                                    for tc in tool_calls:
-                                        if isinstance(tc, dict):
-                                            name = tc.get("name")
-                                            if isinstance(name, str) and name:
-                                                tools_called.append(name)
-                                            else:
-                                                fn = tc.get("function")
-                                                if isinstance(fn, dict):
-                                                    fn_name = fn.get("name")
-                                                    if isinstance(fn_name, str) and fn_name:
-                                                        tools_called.append(fn_name)
-                    except Exception:
-                        tools_called = []
+            with tracer.start_as_current_span("scm.eval.task") as span:
+                span.set_attribute("scm.eval.task_id", task.task_id)
+                span.set_attribute("scm.eval.model_id", config.model_id)
+                span.set_attribute("scm.eval.run_mode", config.run_mode)
 
-                    execution_metrics = {
-                        "syntax_errors_caught": 0,
-                        "successful_retry_attempt": 0,
-                        "tools_called": tools_called,
-                    }
-                    syntax_errors_caught_for_span = 0
-                else:
-                    assert client is not None
-                    raw_response, metrics_obj = run_task(
-                        task=task,
-                        run_mode=config.run_mode,
-                        model_id=config.model_id,
-                        openai_client=client,
-                        tool_schemas=tool_schemas,
-                        name_to_callable=name_to_callable,
-                        name_to_input_model=name_to_input_model,
-                    )
-                    execution_metrics = metrics_obj.to_json()
-                    syntax_errors_caught_for_span = int(execution_metrics["syntax_errors_caught"])
-            except Exception as exc:
-                failures += 1
-                partial_raw_response = _salvage_partial_raw_response(exc, raw_response)
-                debug_row: dict[str, Any] = {
-                    "task_id": task.task_id,
-                    "model_id": config.model_id,
-                    "run_mode": config.run_mode,
-                    "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-                    "trace_id": _trace_id_hex_from_span(span),
-                    "error_type": type(exc).__name__,
-                    "error_message": str(exc),
-                    "traceback": traceback.format_exc(),
-                    "partial_raw_response": partial_raw_response,
-                }
                 try:
-                    _append_jsonl(config.output_jsonl_debug, debug_row)
-                except Exception as debug_exc:
-                    print(f"WARNING: failed to write debug JSONL: {type(debug_exc).__name__}: {debug_exc}", file=sys.stderr)
+                    if config.run_mode == "AgenticGraph":
+                        assert graph is not None
+                        result = graph.invoke(
+                            {
+                                "task_data": {
+                                    "task_id": task.task_id,
+                                    "scenario_context": task.scenario_context,
+                                    "agent_prompt": task.agent_prompt,
+                                },
+                                "messages": [HumanMessage(content=f"{task.scenario_context}\n\n{task.agent_prompt}".strip())],
+                            },
+                            config={"configurable": {"thread_id": task.task_id, "model_id": config.model_id}},
+                        )
+                        raw_response = str((result or {}).get("final_answer") or "")
 
-                raw_response = ""
-                execution_metrics = {"syntax_errors_caught": 0, "successful_retry_attempt": 0, "tools_called": []}
-                span.set_attribute("scm.eval.error", f"{type(exc).__name__}: {exc}")
-            finally:
-                if syntax_errors_caught_for_span is not None:
-                    span.set_attribute("scm.eval.syntax_errors_caught", syntax_errors_caught_for_span)
-                else:
-                    span.set_attribute("scm.eval.syntax_errors_caught", int(execution_metrics["syntax_errors_caught"]))
+                        tools_called: list[str] = []
+                        try:
+                            messages = (result or {}).get("messages", [])
+                            if isinstance(messages, list):
+                                for m in messages:
+                                    tool_calls = None
+                                    if isinstance(m, dict):
+                                        tool_calls = m.get("tool_calls")
+                                    else:
+                                        tool_calls = getattr(m, "tool_calls", None)
+                                        if not tool_calls:
+                                            akw = getattr(m, "additional_kwargs", None)
+                                            if isinstance(akw, dict):
+                                                tool_calls = akw.get("tool_calls")
+                                    if isinstance(tool_calls, list):
+                                        for tc in tool_calls:
+                                            if isinstance(tc, dict):
+                                                name = tc.get("name")
+                                                if isinstance(name, str) and name:
+                                                    tools_called.append(name)
+                                                else:
+                                                    fn = tc.get("function")
+                                                    if isinstance(fn, dict):
+                                                        fn_name = fn.get("name")
+                                                        if isinstance(fn_name, str) and fn_name:
+                                                            tools_called.append(fn_name)
+                        except Exception:
+                            tools_called = []
 
-        row = {
-            "task_id": task.task_id,
-            "model_id": config.model_id,
-            "run_mode": config.run_mode,
-            "raw_response": raw_response,
-            "execution_metrics": execution_metrics,
-        }
-        _append_jsonl(config.output_jsonl, row)
+                        execution_metrics = {
+                            "syntax_errors_caught": 0,
+                            "successful_retry_attempt": 0,
+                            "tools_called": tools_called,
+                        }
+                        syntax_errors_caught_for_span = 0
+                    else:
+                        assert client is not None
+                        raw_response, metrics_obj = run_task(
+                            task=task,
+                            run_mode=config.run_mode,
+                            model_id=config.model_id,
+                            openai_client=client,
+                            tool_schemas=tool_schemas,
+                            name_to_callable=name_to_callable,
+                            name_to_input_model=name_to_input_model,
+                        )
+                        execution_metrics = metrics_obj.to_json()
+                        syntax_errors_caught_for_span = int(execution_metrics["syntax_errors_caught"])
+                except Exception as exc:
+                    failures += 1
+                    partial_raw_response = _salvage_partial_raw_response(exc, raw_response)
+                    debug_row: dict[str, Any] = {
+                        "task_id": task.task_id,
+                        "model_id": config.model_id,
+                        "run_mode": config.run_mode,
+                        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                        "trace_id": _trace_id_hex_from_span(span),
+                        "error_type": type(exc).__name__,
+                        "error_message": str(exc),
+                        "traceback": traceback.format_exc(),
+                        "partial_raw_response": partial_raw_response,
+                    }
+                    try:
+                        _append_jsonl(config.output_jsonl_debug, debug_row)
+                    except Exception as debug_exc:
+                        print(
+                            f"WARNING: failed to write debug JSONL: {type(debug_exc).__name__}: {debug_exc}",
+                            file=sys.stderr,
+                        )
 
-        _force_flush(tracer_provider)
-        time.sleep(0.2)
+                    raw_response = ""
+                    execution_metrics = {"syntax_errors_caught": 0, "successful_retry_attempt": 0, "tools_called": []}
+                    span.set_attribute("scm.eval.error", f"{type(exc).__name__}: {exc}")
+                finally:
+                    if syntax_errors_caught_for_span is not None:
+                        span.set_attribute("scm.eval.syntax_errors_caught", syntax_errors_caught_for_span)
+                    else:
+                        span.set_attribute("scm.eval.syntax_errors_caught", int(execution_metrics["syntax_errors_caught"]))
 
-        status = "OK" if raw_response else "ERR"
-        print(f"{status} task_id={task.task_id} mode={config.run_mode} model={config.model_id}")
+            row = {
+                "task_id": task.task_id,
+                "model_id": config.model_id,
+                "run_mode": config.run_mode,
+                "raw_response": raw_response,
+                "execution_metrics": execution_metrics,
+            }
+            _append_jsonl(config.output_jsonl, row)
+
+            _force_flush(tracer_provider)
+            time.sleep(0.2)
+
+            status = "OK" if raw_response else "ERR"
+            print(f"{status} task_id={task.task_id} mode={config.run_mode} model={config.model_id}")
 
     if failures:
         print(f"Completed with {failures} failure(s). JSONL: {config.output_jsonl}", file=sys.stderr)

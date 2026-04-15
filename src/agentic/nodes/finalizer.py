@@ -37,7 +37,8 @@ Non-negotiable rules:
   - Tool results: "Tool:<tool_name>"
   - YAAM L2 facts: "YAAM L2"
   - L3 context: "L3 Memory"
-- The final answer MUST cite evidence rows by index, e.g. "(E1)", "(E2)".
+- The final answer MUST cite evidence rows by index, e.g. "(E1)", "(E2)", when evidence is available.
+- If no quantitative evidence exists, return an empty evidence_table and explicitly state that no citations are possible.
 - Do not invent values. If a required value is missing, say so and cite the absence.
 
 Output must match the provided JSON schema exactly.
@@ -58,6 +59,20 @@ def _extract_traceparent() -> str | None:
 
     value = carrier.get("traceparent")
     return value if isinstance(value, str) and value else None
+
+
+def _extract_json_object(text: str) -> str:
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        lines = [ln for ln in cleaned.splitlines() if not ln.strip().startswith("```")]
+        cleaned = "\n".join(lines).strip()
+    if cleaned.startswith("{") and cleaned.endswith("}"):
+        return cleaned
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start >= 0 and end > start:
+        return cleaned[start : end + 1].strip()
+    return cleaned
 
 
 def finalizer_node(state: GraphState, config: RunnableConfig) -> dict:
@@ -128,9 +143,14 @@ def finalizer_node(state: GraphState, config: RunnableConfig) -> dict:
         )
     )
 
-    synthesis = structured_llm.invoke([system_msg, *messages], config=config)
-    if not isinstance(synthesis, FinalSynthesis):
-        synthesis = FinalSynthesis.model_validate(synthesis)
+    try:
+        synthesis = structured_llm.invoke([system_msg, *messages], config=config)
+        if not isinstance(synthesis, FinalSynthesis):
+            synthesis = FinalSynthesis.model_validate(synthesis)
+    except Exception:
+        raw_msg = llm.invoke([system_msg, *messages], config=config)
+        raw_text = _extract_json_object(str(getattr(raw_msg, "content", "")))
+        synthesis = FinalSynthesis.model_validate_json(raw_text)
 
     yaam_l4: YaamSemanticClient | None = None
     try:
@@ -152,4 +172,3 @@ def finalizer_node(state: GraphState, config: RunnableConfig) -> dict:
         "evidence_table": [item.model_dump() for item in synthesis.evidence_table],
         "final_answer": synthesis.final_answer,
     }
-
