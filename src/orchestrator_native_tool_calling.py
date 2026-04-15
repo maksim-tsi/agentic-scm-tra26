@@ -41,6 +41,35 @@ class ExecutionMetrics:
 ToolCallable = Callable[[BaseModel], BaseModel]
 
 
+def _get_trace_headers() -> dict[str, str]:
+    """
+    Best-effort OpenTelemetry trace propagation for provider HTTP calls.
+
+    Returns a carrier dict that may include W3C headers (e.g., "traceparent") via
+    `opentelemetry.propagate.inject`, plus a convenience "x-trace-id" hex value.
+    """
+    try:
+        from opentelemetry import propagate, trace  # type: ignore
+    except Exception:
+        return {}
+
+    carrier: dict[str, str] = {}
+    try:
+        propagate.inject(carrier)
+    except Exception:
+        pass
+
+    try:
+        span = trace.get_current_span()
+        ctx = span.get_span_context() if span is not None else None
+        if ctx is not None and getattr(ctx, "is_valid", False) and getattr(ctx, "trace_id", 0):
+            carrier.setdefault("x-trace-id", f"{int(ctx.trace_id):032x}")
+    except Exception:
+        pass
+
+    return carrier
+
+
 def load_tasks(path: str | Path) -> dict[str, TaskRow]:
     """
     Load benchmark tasks from a questions-only JSONL file.
@@ -310,9 +339,30 @@ def run_task(
     """
     mode = _coerce_run_mode(run_mode)
 
+    try:
+        from opentelemetry import trace  # type: ignore
+
+        span = trace.get_current_span()
+        if span is not None and span.is_recording():
+            span.set_attribute("session.id", f"task-{task.task_id}")
+    except Exception:
+        pass
+
     if mode in ("Naive", "Naive+Evidence"):
         messages = _messages_for_task(task, mode)
-        resp = openai_client.chat.completions.create(model=model_id, messages=messages, temperature=0)
+        trace_headers = _get_trace_headers()
+        if trace_headers:
+            try:
+                resp = openai_client.chat.completions.create(
+                    model=model_id,
+                    messages=messages,
+                    temperature=0,
+                    extra_headers=trace_headers,
+                )
+            except TypeError:
+                resp = openai_client.chat.completions.create(model=model_id, messages=messages, temperature=0)
+        else:
+            resp = openai_client.chat.completions.create(model=model_id, messages=messages, temperature=0)
         content = _extract_assistant_text(resp)
         return content, ExecutionMetrics(syntax_errors_caught=0, successful_retry_attempt=0, tools_called=[])
 
@@ -333,13 +383,33 @@ def run_task(
                 tools_called=tools_called,
             )
 
-        resp = openai_client.chat.completions.create(
-            model=model_id,
-            messages=messages,
-            tools=tool_schemas,
-            tool_choice="auto",
-            temperature=0,
-        )
+        trace_headers = _get_trace_headers()
+        if trace_headers:
+            try:
+                resp = openai_client.chat.completions.create(
+                    model=model_id,
+                    messages=messages,
+                    tools=tool_schemas,
+                    tool_choice="auto",
+                    temperature=0,
+                    extra_headers=trace_headers,
+                )
+            except TypeError:
+                resp = openai_client.chat.completions.create(
+                    model=model_id,
+                    messages=messages,
+                    tools=tool_schemas,
+                    tool_choice="auto",
+                    temperature=0,
+                )
+        else:
+            resp = openai_client.chat.completions.create(
+                model=model_id,
+                messages=messages,
+                tools=tool_schemas,
+                tool_choice="auto",
+                temperature=0,
+            )
 
         tool_calls = _extract_tool_calls(resp)
         if not tool_calls:

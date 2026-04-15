@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import time
+import traceback
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,6 +31,7 @@ class OrchestratorConfig:
     model_id: str
     run_mode: RunMode
     output_jsonl: Path
+    output_jsonl_debug: Path
     task_id: str | None
     limit: int | None
     openrouter_base_url: str
@@ -38,6 +40,7 @@ class OrchestratorConfig:
     phoenix_project_name: str
     phoenix_api_key: str | None
     phoenix_client_headers: dict[str, str]
+    no_tracing: bool
 
 
 def _parse_header_kv_pairs(raw: str) -> dict[str, str]:
@@ -92,6 +95,16 @@ def _load_config(argv: list[str]) -> OrchestratorConfig:
         default="outputs/evaluation_results.jsonl",
         help="Path to append RFC002 JSONL results.",
     )
+    parser.add_argument(
+        "--output-jsonl-debug",
+        default="outputs/evaluation_results_debug.jsonl",
+        help="Path to append debug JSONL results (exceptions only).",
+    )
+    parser.add_argument(
+        "--no-tracing",
+        action="store_true",
+        help="Disable Phoenix/OpenTelemetry tracing (still writes JSONL).",
+    )
     args = parser.parse_args(argv)
 
     load_dotenv()
@@ -106,7 +119,7 @@ def _load_config(argv: list[str]) -> OrchestratorConfig:
 
     openrouter_base_url = os.getenv("OPENROUTER_BASE_URL") or DEFAULT_OPENROUTER_BASE_URL
 
-    phoenix_collector_endpoint = _resolve_phoenix_collector_endpoint()
+    phoenix_collector_endpoint = os.getenv("PHOENIX_COLLECTOR_ENDPOINT") or ""
     phoenix_project_name = os.getenv("PHOENIX_PROJECT_NAME") or "scm-cert-eval-sandbox"
 
     phoenix_api_key = os.getenv("PHOENIX_API_KEY") or None
@@ -116,11 +129,13 @@ def _load_config(argv: list[str]) -> OrchestratorConfig:
         phoenix_client_headers["Authorization"] = f"Bearer {phoenix_api_key}"
 
     output_jsonl = Path(args.output_jsonl)
+    output_jsonl_debug = Path(args.output_jsonl_debug)
 
     return OrchestratorConfig(
         model_id=model_id,
         run_mode=args.run_mode,  # type: ignore[arg-type]
         output_jsonl=output_jsonl,
+        output_jsonl_debug=output_jsonl_debug,
         task_id=args.task_id,
         limit=args.limit,
         openrouter_base_url=openrouter_base_url,
@@ -129,14 +144,16 @@ def _load_config(argv: list[str]) -> OrchestratorConfig:
         phoenix_project_name=phoenix_project_name,
         phoenix_api_key=phoenix_api_key,
         phoenix_client_headers=phoenix_client_headers,
+        no_tracing=bool(args.no_tracing),
     )
 
 
 def _init_tracing(config: OrchestratorConfig) -> Any:
     from phoenix.otel import register
 
+    endpoint = config.phoenix_collector_endpoint or _resolve_phoenix_collector_endpoint()
     tracer_provider = register(
-        endpoint=config.phoenix_collector_endpoint,
+        endpoint=endpoint,
         project_name=config.phoenix_project_name,
         protocol="http/protobuf",
         batch=False,
@@ -169,6 +186,8 @@ def _append_jsonl(path: Path, row: dict[str, Any]) -> None:
 
 
 def _force_flush(tracer_provider: Any) -> None:
+    if not tracer_provider:
+        return
     for name in ("force_flush", "shutdown"):
         fn = getattr(tracer_provider, name, None)
         if callable(fn):
@@ -191,6 +210,50 @@ def _iter_tasks(all_tasks: dict[str, TaskRow], *, task_id: str | None, limit: in
     return rows
 
 
+def _trace_id_hex_from_span(span: Any) -> str:
+    try:
+        ctx = span.get_span_context()
+        if getattr(ctx, "is_valid", False) and getattr(ctx, "trace_id", 0):
+            return f"{int(ctx.trace_id):032x}"
+    except Exception:
+        pass
+    return ""
+
+
+def _salvage_partial_raw_response(exc: BaseException, raw_response: str) -> str:
+    if raw_response:
+        return raw_response
+
+    # Best-effort extraction for OpenAI-compatible errors (APIStatusError, etc.).
+    payload: Any | None = None
+    for attr in ("body",):
+        candidate = getattr(exc, attr, None)
+        if isinstance(candidate, dict):
+            payload = candidate
+            break
+
+    if payload is None:
+        resp = getattr(exc, "response", None)
+        if resp is not None:
+            try:
+                payload = resp.json()
+            except Exception:
+                payload = None
+
+    if not isinstance(payload, dict):
+        return ""
+
+    try:
+        choices = payload.get("choices") or []
+        if not choices:
+            return ""
+        msg = (choices[0] or {}).get("message") or {}
+        content = msg.get("content")
+        return content if isinstance(content, str) else ""
+    except Exception:
+        return ""
+
+
 def main(argv: list[str]) -> int:
     try:
         config = _load_config(argv)
@@ -199,11 +262,15 @@ def main(argv: list[str]) -> int:
         return 2
 
     tracer_provider = None
-    try:
-        tracer_provider = _init_tracing(config)
-    except Exception as exc:
-        print(f"TRACING INIT ERROR: {exc}", file=sys.stderr)
-        return 2
+    if not config.no_tracing:
+        try:
+            tracer_provider = _init_tracing(config)
+        except Exception as exc:
+            print(
+                f"WARNING: tracing init failed; continuing without tracing. {type(exc).__name__}: {exc}",
+                file=sys.stderr,
+            )
+            tracer_provider = None
 
     try:
         import tools  # type: ignore
@@ -247,6 +314,23 @@ def main(argv: list[str]) -> int:
                 syntax_errors_caught_for_span = int(execution_metrics["syntax_errors_caught"])
             except Exception as exc:
                 failures += 1
+                partial_raw_response = _salvage_partial_raw_response(exc, raw_response)
+                debug_row: dict[str, Any] = {
+                    "task_id": task.task_id,
+                    "model_id": config.model_id,
+                    "run_mode": config.run_mode,
+                    "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                    "trace_id": _trace_id_hex_from_span(span),
+                    "error_type": type(exc).__name__,
+                    "error_message": str(exc),
+                    "traceback": traceback.format_exc(),
+                    "partial_raw_response": partial_raw_response,
+                }
+                try:
+                    _append_jsonl(config.output_jsonl_debug, debug_row)
+                except Exception as debug_exc:
+                    print(f"WARNING: failed to write debug JSONL: {type(debug_exc).__name__}: {debug_exc}", file=sys.stderr)
+
                 raw_response = ""
                 execution_metrics = {"syntax_errors_caught": 0, "successful_retry_attempt": 0, "tools_called": []}
                 span.set_attribute("scm.eval.error", f"{type(exc).__name__}: {exc}")
