@@ -44,7 +44,7 @@ class _YaamStub:
         self.closed = True
 
 
-def test_store_intermediate_fact_uses_task_id_and_closes(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_successful_tool_call_auto_stores_l2_fact(monkeypatch: pytest.MonkeyPatch) -> None:
     _ensure_src_on_path()
     from agentic.nodes import executor as executor_mod
 
@@ -52,10 +52,21 @@ def test_store_intermediate_fact_uses_task_id_and_closes(monkeypatch: pytest.Mon
     monkeypatch.setattr(executor_mod.YaamSemanticClient, "from_env", staticmethod(lambda: yaam))
     monkeypatch.setattr(executor_mod, "_extract_traceparent", lambda: "tp")
 
+    tool_name = "economic_order_quantity__calculate_total_annual_inventory_cost"
     ai = AIMessage(
-        content="store",
+        content="call",
         tool_calls=[
-            {"name": "store_intermediate_fact", "args": {"fact": "fact-1"}, "id": "1", "type": "tool_call"}
+            {
+                "name": tool_name,
+                "args": {
+                    "annual_demand": 1000.0,
+                    "order_quantity": 100.0,
+                    "order_cost": 50.0,
+                    "holding_cost_per_unit": 2.0,
+                },
+                "id": "1",
+                "type": "tool_call",
+            }
         ],
     )
     out = executor_mod.executor_tools_node.invoke(
@@ -68,11 +79,12 @@ def test_store_intermediate_fact_uses_task_id_and_closes(monkeypatch: pytest.Mon
     assert yaam.closed is True
     assert yaam.calls and yaam.calls[0]["session_id"] == "T1" and yaam.calls[0]["task_id"] == "T1"
     assert yaam.calls[0]["agent_id"] == "tra-scm-executor"
-    assert yaam.calls[0]["content"] == "fact-1"
+    assert yaam.calls[0]["content"].startswith(f"Tool {tool_name} returned: ")
+    assert "total_annual_cost" in yaam.calls[0]["content"]
     assert yaam.calls[0]["traceparent"] == "tp"
 
 
-def test_store_intermediate_fact_env_missing_does_not_crash(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_yaam_failure_does_not_change_tool_output(monkeypatch: pytest.MonkeyPatch) -> None:
     _ensure_src_on_path()
     from agentic.nodes import executor as executor_mod
 
@@ -81,10 +93,21 @@ def test_store_intermediate_fact_env_missing_does_not_crash(monkeypatch: pytest.
 
     monkeypatch.setattr(executor_mod.YaamSemanticClient, "from_env", staticmethod(_raise))
 
+    tool_name = "economic_order_quantity__calculate_total_annual_inventory_cost"
     ai = AIMessage(
-        content="store",
+        content="call",
         tool_calls=[
-            {"name": "store_intermediate_fact", "args": {"fact": "fact-1"}, "id": "1", "type": "tool_call"}
+            {
+                "name": tool_name,
+                "args": {
+                    "annual_demand": 1000.0,
+                    "order_quantity": 100.0,
+                    "order_cost": 50.0,
+                    "holding_cost_per_unit": 2.0,
+                },
+                "id": "1",
+                "type": "tool_call",
+            }
         ],
     )
     out = executor_mod.executor_tools_node.invoke(
@@ -93,7 +116,16 @@ def test_store_intermediate_fact_env_missing_does_not_crash(monkeypatch: pytest.
     )
     msgs = out.get("messages") if isinstance(out, dict) else None
     assert isinstance(msgs, list) and msgs
-    assert "SKIPPED" in str(getattr(msgs[-1], "content", ""))
+    content = str(getattr(msgs[-1], "content", ""))
+    assert "total_annual_cost" in content
+    assert not content.startswith("Tool Error:")
+
+
+def test_store_intermediate_fact_tool_is_not_exposed() -> None:
+    _ensure_src_on_path()
+    from agentic.nodes import executor as executor_mod
+
+    assert "store_intermediate_fact" not in executor_mod.executor_tools_node.tools_by_name
 
 
 def test_wrapped_tool_validation_error_is_visible() -> None:

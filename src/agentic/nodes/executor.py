@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import Any, Callable, get_type_hints
 
 from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
-from langchain_core.tools import tool
 from langchain_core.tools.structured import StructuredTool
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import ToolNode
@@ -18,6 +18,9 @@ from memory.yaam_client import YaamSemanticClient
 from tools import ACTIVE_TOOLS
 
 
+logger = logging.getLogger(__name__)
+
+
 EXECUTOR_SYSTEM_PROMPT = """\
 You are the Lead SCM Executor in a Multi-Agent System.
 Your Goal: Execute the step-by-step plan provided by the Planner.
@@ -25,8 +28,7 @@ Your Goal: Execute the step-by-step plan provided by the Planner.
 Rules of the Walled Garden:
 1. You CANNOT calculate any math yourself. You MUST use the provided tools for every quantitative step.
 2. If a tool returns a validation error (Pydantic), analyze the error, correct your parameters, and call the tool again.
-3. MANDATORY L2 STORAGE: You MUST explicitly call the "store_intermediate_fact" tool to save the results of YOUR tool executions into Working Memory. Do NOT declare "FINAL_EXECUTION_DONE:" until you have successfully stored the key findings.
-4. When all steps in the plan are fully resolved, output a message starting with "FINAL_EXECUTION_DONE:" followed by a brief summary of the findings.
+3. When all steps in the plan are fully resolved, output a message starting with "FINAL_EXECUTION_DONE:" followed by a brief summary of the findings.
 """
 
 
@@ -119,13 +121,68 @@ def _resolve_tool_models(
     return input_model, pass_model_directly, output_model
 
 
+def _resolve_task_id_from_runtime(runtime: ToolRuntime | None) -> str | None:
+    if runtime is None:
+        return None
+
+    try:
+        state = getattr(runtime, "state", None)
+        if isinstance(state, dict):
+            task_data = state.get("task_data")
+            if isinstance(task_data, dict):
+                candidate = task_data.get("task_id")
+                if candidate:
+                    return str(candidate)
+    except Exception:
+        pass
+
+    try:
+        cfg = getattr(runtime, "config", None)
+        if isinstance(cfg, dict):
+            configurable = cfg.get("configurable", {}) or {}
+            candidate = configurable.get("task_id")
+            if candidate:
+                return str(candidate)
+    except Exception:
+        pass
+
+    return None
+
+
+def _best_effort_store_tool_result(*, tool_alias: str, serialized_result: str, runtime: ToolRuntime | None) -> None:
+    task_id = _resolve_task_id_from_runtime(runtime)
+    if not task_id:
+        logger.debug("Skipping YAAM L2 write for %s: missing task_id in runtime context", tool_alias)
+        return
+
+    traceparent = _extract_traceparent()
+    yaam: YaamSemanticClient | None = None
+    try:
+        yaam = YaamSemanticClient.from_env()
+        _ = yaam.store_l2_fact(
+            session_id=task_id,
+            agent_id="tra-scm-executor",
+            task_id=task_id,
+            content=f"Tool {tool_alias} returned: {serialized_result}",
+            traceparent=traceparent,
+        )
+    except Exception as e:
+        logger.warning("YAAM L2 write failed for %s: %s: %s", tool_alias, type(e).__name__, e)
+    finally:
+        if yaam is not None:
+            try:
+                yaam.close()
+            except Exception:
+                pass
+
+
 def _wrap_active_tool(fn: Callable[..., Any]) -> StructuredTool:
     alias = _tool_alias(fn)
     description = _tool_description(fn)
     input_model, pass_model_directly, output_model = _resolve_tool_models(fn)
     json_schema = input_model.model_json_schema()
 
-    def wrapped_tool(**kwargs: Any) -> str:
+    def wrapped_tool(runtime: ToolRuntime | None = None, **kwargs: Any) -> str:
         # IMPORTANT for self-correction: do not let ValidationError bubble into ToolNode.
         try:
             input_obj = input_model.model_validate(kwargs)
@@ -141,21 +198,26 @@ def _wrap_active_tool(fn: Callable[..., Any]) -> StructuredTool:
         except Exception as e:
             return f"Tool Error: {type(e).__name__}: {e}"
 
+        payload: str
         if isinstance(result, BaseModel):
-            return _serialize_tool_output(result.model_dump(exclude_none=True))
-        if isinstance(result, dict):
-            return _serialize_tool_output(result)
-
-        if output_model is not None:
+            payload = _serialize_tool_output(result.model_dump(exclude_none=True))
+        elif isinstance(result, dict):
+            payload = _serialize_tool_output(result)
+        elif output_model is not None:
             fields = list(output_model.model_fields.keys())
             if len(fields) == 1:
                 try:
                     coerced = output_model(**{fields[0]: result})
-                    return _serialize_tool_output(coerced.model_dump(exclude_none=True))
+                    payload = _serialize_tool_output(coerced.model_dump(exclude_none=True))
                 except Exception:
-                    pass
+                    payload = _serialize_tool_output(result)
+            else:
+                payload = _serialize_tool_output(result)
+        else:
+            payload = _serialize_tool_output(result)
 
-        return _serialize_tool_output(result)
+        _best_effort_store_tool_result(tool_alias=alias, serialized_result=payload, runtime=runtime)
+        return payload
 
     return StructuredTool.from_function(
         func=wrapped_tool,
@@ -166,66 +228,8 @@ def _wrap_active_tool(fn: Callable[..., Any]) -> StructuredTool:
     )
 
 
-@tool
-def store_intermediate_fact(fact: str, runtime: ToolRuntime) -> str:
-    """
-    Store an intermediate executor result into YAAM L2 working memory (best-effort).
-
-    This tool must never crash the agent loop; on YAAM outage or misconfiguration it returns
-    a short status string.
-    """
-    traceparent = _extract_traceparent()
-
-    task_id: str | None = None
-    try:
-        state = getattr(runtime, "state", None)
-        if isinstance(state, dict):
-            task_data = state.get("task_data")
-            if isinstance(task_data, dict):
-                candidate = task_data.get("task_id")
-                if candidate:
-                    task_id = str(candidate)
-    except Exception:
-        task_id = None
-
-    if not task_id:
-        try:
-            cfg = getattr(runtime, "config", None)
-            if isinstance(cfg, dict):
-                configurable = cfg.get("configurable", {}) or {}
-                candidate = configurable.get("task_id")
-                if candidate:
-                    task_id = str(candidate)
-        except Exception:
-            task_id = None
-
-    if not task_id:
-        return "YAAM_L2_STORE_SKIPPED: missing task_id"
-
-    session_id = task_id
-    yaam: YaamSemanticClient | None = None
-    try:
-        yaam = YaamSemanticClient.from_env()
-        _ = yaam.store_l2_fact(
-            session_id=session_id,
-            agent_id="tra-scm-executor",
-            task_id=task_id,
-            content=fact,
-            traceparent=traceparent,
-        )
-        return "YAAM_L2_STORE_OK"
-    except Exception as e:
-        return f"YAAM_L2_STORE_SKIPPED: {type(e).__name__}: {e}"
-    finally:
-        if yaam is not None:
-            try:
-                yaam.close()
-            except Exception:
-                pass
-
-
 wrapped_active_tools = [_wrap_active_tool(fn) for fn in ACTIVE_TOOLS]
-all_tools = [*wrapped_active_tools, store_intermediate_fact]
+all_tools = [*wrapped_active_tools]
 
 
 def executor_agent_node(state: GraphState, config: RunnableConfig) -> dict:
