@@ -25,7 +25,7 @@ Your Goal: Execute the step-by-step plan provided by the Planner.
 Rules of the Walled Garden:
 1. You CANNOT calculate any math yourself. You MUST use the provided tools for every quantitative step.
 2. If a tool returns a validation error (Pydantic), analyze the error, correct your parameters, and call the tool again.
-3. Once you have successfully executed a tool and obtained a critical intermediate result, call the `store_intermediate_fact` tool to save it to Working Memory.
+3. MANDATORY L2 STORAGE: You MUST explicitly call the "store_intermediate_fact" tool to save the results of YOUR tool executions into Working Memory. Do NOT declare "FINAL_EXECUTION_DONE:" until you have successfully stored the key findings.
 4. When all steps in the plan are fully resolved, output a message starting with "FINAL_EXECUTION_DONE:" followed by a brief summary of the findings.
 """
 
