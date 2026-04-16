@@ -27,7 +27,7 @@ To keep evaluations reproducible:
 
 ## Dependency management
 - Source of truth for dependencies is `pyproject.toml` + `uv.lock`.
-- `requirements.txt` is a fallback for users who cannot use `uv`.
+- `requirements.txt` is a fallback for users who cannot use `uv`, generated from `uv.lock` via `uv export`.
 
 ## Dynamic Tool Retrieval (DTR) Policy
 At the current stage, the evaluation harness uses a **golden registry** of deterministic SCM tools exported via `tools.ACTIVE_TOOLS` (currently 35 tools as of 2026-04-02).

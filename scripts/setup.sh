@@ -9,7 +9,7 @@ if ! command -v uv >/dev/null 2>&1; then
   exit 1
 fi
 
-export PYTHONPATH="src:tools"
+export PYTHONPATH="src:."
 
 UV_CACHE_DIR="${UV_CACHE_DIR:-.uv-cache}"
 uv --cache-dir "$UV_CACHE_DIR" sync --dev --frozen
