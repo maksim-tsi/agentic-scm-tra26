@@ -65,6 +65,10 @@ def _load_completed_task_ids(results_path: Path, *, run_mode: str, model_id: str
     return completed
 
 
+def _model_slug(model_id: str) -> str:
+    return model_id.replace("/", "-")
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="Resumable batch runner for orchestrator tasks.")
     parser.add_argument("--limit", type=int, default=50, help="Number of pending tasks to process.")
@@ -87,7 +91,17 @@ def main(argv: list[str]) -> int:
 
     repo_root = Path(__file__).resolve().parents[1]
     dataset_path = repo_root / "data" / "benchmark" / "golden_tasks_questions_only.jsonl"
-    results_path = repo_root / "outputs" / "evaluation_results.jsonl"
+
+    # Preserve legacy default path when model is sourced from env only.
+    if args.model_id:
+        slug = _model_slug(model_id)
+        batch_dir = repo_root / "outputs" / "batches" / slug
+        batch_dir.mkdir(parents=True, exist_ok=True)
+        results_path = batch_dir / "evaluation_results.jsonl"
+        debug_path = batch_dir / "evaluation_results_debug.jsonl"
+    else:
+        results_path = repo_root / "outputs" / "evaluation_results.jsonl"
+        debug_path = repo_root / "outputs" / "evaluation_results_debug.jsonl"
 
     all_task_ids = _load_all_task_ids(dataset_path)
     completed = _load_completed_task_ids(results_path, run_mode=args.run_mode, model_id=model_id)
@@ -97,6 +111,8 @@ def main(argv: list[str]) -> int:
 
     print(f"Model: {model_id}")
     print(f"Run mode: {args.run_mode}")
+    print(f"Output JSONL: {results_path}")
+    print(f"Output debug JSONL: {debug_path}")
     print(f"Dataset tasks: {len(all_task_ids)}")
     print(f"Completed matching tasks: {len(completed)}")
     print(f"Pending matching tasks: {len(pending)}")
@@ -119,6 +135,10 @@ def main(argv: list[str]) -> int:
             args.run_mode,
             "--task-id",
             task_id,
+            "--output-jsonl",
+            str(results_path),
+            "--output-jsonl-debug",
+            str(debug_path),
         ]
         proc = subprocess.run(cmd, env=env)
         if proc.returncode != 0:
