@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import traceback
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -318,6 +319,7 @@ def main(argv: list[str]) -> int:
                 try:
                     if config.run_mode == "AgenticGraph":
                         assert graph is not None
+                        thread_id = f"{task.task_id}_{uuid.uuid4().hex[:8]}"
                         result = graph.invoke(
                             {
                                 "task_data": {
@@ -327,7 +329,14 @@ def main(argv: list[str]) -> int:
                                 },
                                 "messages": [HumanMessage(content=f"{task.scenario_context}\n\n{task.agent_prompt}".strip())],
                             },
-                            config={"configurable": {"thread_id": task.task_id, "model_id": config.model_id}},
+                            config={
+                                "configurable": {
+                                    "thread_id": thread_id,
+                                    "task_id": task.task_id,
+                                    "model_id": config.model_id,
+                                },
+                                "recursion_limit": 30,
+                            },
                         )
                         raw_response = str((result or {}).get("final_answer") or "")
 

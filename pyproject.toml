@@ -18,10 +18,14 @@ dependencies = [
   "numpy",
   "scipy",
   "pulp",
-  "pytest",
   "arize-phoenix-otel>=0.15.0",
   "arize-phoenix-client>=2.2.0",
   "openinference-instrumentation-openai>=0.1.43",
+]
+
+[dependency-groups]
+dev = [
+  "pytest",
 ]
 
 [tool.pytest.ini_options]

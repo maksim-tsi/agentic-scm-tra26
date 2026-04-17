@@ -18,7 +18,7 @@ Final status:
 
 - Smoke script under test: scripts/smoke_test_infra.py
 - Env template used: .env.example with local .env values
-- Canonical execution plan reference: docs/exec-plans/001-infra-smoke-test.md
+- Canonical execution plan reference: docs/exec-plans/completed/001-infra-smoke-test.md
 
 ## What Was Implemented
 

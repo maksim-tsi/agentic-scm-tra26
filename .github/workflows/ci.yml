@@ -23,5 +23,5 @@ jobs:
 
       - name: Run tests
         env:
-          PYTHONPATH: src:tools
+          PYTHONPATH: src:.
         run: uv --cache-dir .uv-cache run pytest

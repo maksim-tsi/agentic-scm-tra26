@@ -60,10 +60,20 @@ Documentation can evolve, but benchmark question content and imported tool logic
 - Python **3.12+** (see `.python-version`)
 - `uv` (recommended) or `pip`
 
+On Linux, `uv` commonly installs to `~/.local/bin`. Ensure that path is on `PATH`.
+
 ### Install (recommended: uv)
 
 ```bash
 uv sync --dev --frozen
+```
+
+`uv.lock` is the dependency source of truth for this repo.
+
+To refresh pip fallback requirements from the lockfile:
+
+```bash
+uv export --frozen --format requirements-txt --no-hashes > requirements.txt
 ```
 
 ### Install (fallback: venv + pip)
@@ -77,7 +87,7 @@ pip install -r requirements.txt
 ### Environment variables
 
 - `OPENROUTER_API_KEY` (required for naive LLM target)
-- `PYTHONPATH=src:tools` (recommended for local imports)
+- `PYTHONPATH=src:.` (recommended for local imports)
 
 Optional (depending on what you run):
 

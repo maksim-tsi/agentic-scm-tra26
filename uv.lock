@@ -25,10 +25,14 @@ dependencies = [
     { name = "openinference-instrumentation-openai" },
     { name = "pulp" },
     { name = "pydantic" },
-    { name = "pytest" },
     { name = "python-dotenv" },
     { name = "scipy" },
     { name = "structlog" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
 ]
 
 [package.metadata]
@@ -46,11 +50,13 @@ requires-dist = [
     { name = "openinference-instrumentation-openai", specifier = ">=0.1.43" },
     { name = "pulp" },
     { name = "pydantic", specifier = ">=2.0.0,<3" },
-    { name = "pytest" },
     { name = "python-dotenv" },
     { name = "scipy" },
     { name = "structlog" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest" }]
 
 [[package]]
 name = "aiosqlite"

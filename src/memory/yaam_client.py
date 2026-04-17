@@ -21,15 +21,18 @@ class YaamSemanticClient:
         self,
         *,
         gateway_url: str,
-        timeout_s: float = 30.0,
+        timeout_s: float = 120.0,
         http_client: httpx.Client | None = None,
     ) -> None:
         self._gateway_url = gateway_url.rstrip("/")
         self._owns_client = http_client is None
-        self._client = http_client or httpx.Client(base_url=self._gateway_url, timeout=timeout_s)
+        # L3 semantic queries may spend 40-60s on embedding + retrieval; keep connect fast but
+        # allow long read/write windows to avoid premature client-side timeouts.
+        timeout = httpx.Timeout(timeout_s, connect=min(10.0, timeout_s))
+        self._client = http_client or httpx.Client(base_url=self._gateway_url, timeout=timeout)
 
     @classmethod
-    def from_env(cls, *, timeout_s: float = 30.0) -> "YaamSemanticClient":
+    def from_env(cls, *, timeout_s: float = 120.0) -> "YaamSemanticClient":
         gateway_url = os.getenv("YAAM_SEMANTIC_GATEWAY_URL") or ""
         if not gateway_url:
             raise ValueError("Missing required env var: YAAM_SEMANTIC_GATEWAY_URL")
