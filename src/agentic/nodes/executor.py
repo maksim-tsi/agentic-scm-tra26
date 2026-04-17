@@ -12,6 +12,7 @@ from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import ToolNode
 from langgraph.prebuilt.tool_node import ToolRuntime
 from pydantic import BaseModel, ValidationError
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from agentic.state import GraphState
 from memory.yaam_client import YaamSemanticClient
@@ -232,6 +233,16 @@ wrapped_active_tools = [_wrap_active_tool(fn) for fn in ACTIVE_TOOLS]
 all_tools = [*wrapped_active_tools]
 
 
+@retry(
+    stop=stop_after_attempt(4),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    reraise=True,
+)
+def _invoke_llm_with_retry(*, llm_with_tools: Any, messages: list[Any], config: RunnableConfig) -> Any:
+    # Retry transient model/API failures (for example rate limits) with bounded backoff.
+    return llm_with_tools.invoke(messages, config=config)
+
+
 def executor_agent_node(state: GraphState, config: RunnableConfig) -> dict:
     messages = state.get("messages", [])
     if not isinstance(messages, list):
@@ -262,7 +273,7 @@ def executor_agent_node(state: GraphState, config: RunnableConfig) -> dict:
         default_headers=default_headers,
     )
     llm_with_tools = llm.bind_tools(all_tools)
-    response = llm_with_tools.invoke(messages, config=config)
+    response = _invoke_llm_with_retry(llm_with_tools=llm_with_tools, messages=messages, config=config)
     return {"messages": [response]}
 
 

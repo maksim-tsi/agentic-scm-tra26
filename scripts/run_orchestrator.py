@@ -334,7 +334,8 @@ def main(argv: list[str]) -> int:
                                     "thread_id": thread_id,
                                     "task_id": task.task_id,
                                     "model_id": config.model_id,
-                                }
+                                },
+                                "recursion_limit": 30,
                             },
                         )
                         raw_response = str((result or {}).get("final_answer") or "")

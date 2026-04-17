@@ -8,6 +8,9 @@ import sys
 from pathlib import Path
 
 
+TASK_TIMEOUT_SECONDS = 300
+
+
 def _load_all_task_ids(dataset_path: Path) -> list[str]:
     if not dataset_path.exists():
         raise FileNotFoundError(f"Dataset file not found: {dataset_path}")
@@ -140,7 +143,15 @@ def main(argv: list[str]) -> int:
             "--output-jsonl-debug",
             str(debug_path),
         ]
-        proc = subprocess.run(cmd, env=env)
+        try:
+            proc = subprocess.run(cmd, env=env, timeout=TASK_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired:
+            print(
+                f"[TIMEOUT] task {task_id} exceeded {TASK_TIMEOUT_SECONDS}s wall-clock limit; continuing.",
+                file=sys.stderr,
+            )
+            continue
+
         if proc.returncode != 0:
             print(
                 f"WARNING: task {task_id} exited with code {proc.returncode}; continuing.",
