@@ -136,11 +136,11 @@ def _call_get_traces(client: Any, project: str, limit: int, day_start: datetime,
     # Try to pass time window if supported by client version.
     for start_key in ("start_time", "from_time", "since"):
         if start_key in params:
-            kwargs[start_key] = day_start.isoformat()
+            kwargs[start_key] = day_start
             break
     for end_key in ("end_time", "to_time", "until"):
         if end_key in params:
-            kwargs[end_key] = day_end.isoformat()
+            kwargs[end_key] = day_end
             break
 
     rows = fn(**kwargs)
@@ -170,11 +170,11 @@ def _call_get_spans(client: Any, project: str, limit: int, day_start: datetime, 
 
     for start_key in ("start_time", "from_time", "since"):
         if start_key in params:
-            kwargs[start_key] = day_start.isoformat()
+            kwargs[start_key] = day_start
             break
     for end_key in ("end_time", "to_time", "until"):
         if end_key in params:
-            kwargs[end_key] = day_end.isoformat()
+            kwargs[end_key] = day_end
             break
 
     rows = fn(**kwargs)
