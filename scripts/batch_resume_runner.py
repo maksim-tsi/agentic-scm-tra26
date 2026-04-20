@@ -134,6 +134,8 @@ def main(argv: list[str]) -> int:
         cmd = [
             sys.executable,
             "scripts/run_orchestrator.py",
+            "--model-id",
+            str(model_id),
             "--run-mode",
             args.run_mode,
             "--task-id",

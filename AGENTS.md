@@ -40,3 +40,8 @@ Preferred workflow uses `uv` + `uv.lock` for reproducibility.
 - Inspect active tools: `uv run python -c "import tools; print(len(tools.ACTIVE_TOOLS))"`
 - Search codebase: `rg -n "TODO|NotImplementedError" src tools docs`
 
+## Adhoc script workflow
+- For ad-hoc analysis/ops work larger than ~20 lines, save code under `scripts/adhoc/` instead of running inline console snippets.
+- If testing before execution is needed, run checks first (at minimum `ruff` and `mypy`) and execute only after checks pass.
+- If similar ad-hoc scripts accumulate, parameterize and consolidate them into a reusable script instead of duplicating one-offs.
+
