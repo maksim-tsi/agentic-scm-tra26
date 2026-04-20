@@ -10,7 +10,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal, get_args
+from typing import Any, get_args
 
 from dotenv import load_dotenv
 from langgraph.checkpoint.sqlite import SqliteSaver
@@ -23,7 +23,7 @@ if str(SRC_ROOT) not in sys.path:
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from orchestrator_native_tool_calling import RunMode, TaskRow, build_tool_registry, load_tasks, run_task
+from orchestrator_native_tool_calling import RunMode, TaskRow, build_tool_registry, load_tasks, run_task  # noqa: E402
 
 
 DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
@@ -264,6 +264,10 @@ def main(argv: list[str]) -> int:
         print(f"CONFIG ERROR: {exc}", file=sys.stderr)
         return 2
 
+    # Ensure downstream code paths that read OPENROUTER_MODEL use the resolved run model.
+    os.environ["OPENROUTER_MODEL"] = config.model_id
+    print(f"OVERRIDING LLM MODEL FOR THIS RUN: {config.model_id}", file=sys.stderr)
+
     Path("outputs").mkdir(parents=True, exist_ok=True)
 
     tracer_provider = None
@@ -309,7 +313,11 @@ def main(argv: list[str]) -> int:
         for task in selected:
             syntax_errors_caught_for_span: int | None = None
             raw_response = ""
-            execution_metrics = {"syntax_errors_caught": 0, "successful_retry_attempt": 0, "tools_called": []}
+            execution_metrics: dict[str, Any] = {
+                "syntax_errors_caught": 0,
+                "successful_retry_attempt": 0,
+                "tools_called": [],
+            }
 
             with tracer.start_as_current_span("scm.eval.task") as span:
                 span.set_attribute("scm.eval.task_id", task.task_id)
