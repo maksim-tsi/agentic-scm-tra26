@@ -2,6 +2,10 @@
 
 Evaluation harness for comparing **zero-shot “naive” LLMs** (via OpenRouter) against our **agentic MAS** that combines **YAAM memory** and **Skill Factory tools**, with support for **DTR**-style execution/tracing.
 
+## Archive Status
+
+This repository is a public academic archive for the TRA 2026 SCM-MAS evaluation codebase. It is preserved for reproducibility, citation, and follow-on research, but it is not maintained as an active software product. Runtime outputs, local traces, paper-drafting notes, legacy prototypes, and operator-specific infrastructure details are intentionally excluded from the public archive tip.
+
 The current runnable path is the **native tool-calling orchestrator** (`scripts/run_orchestrator.py` + `src/orchestrator_native_tool_calling.py`) implementing:
 - **RFC 001**: strict native tool-calling loop (Pydantic boundary; no code execution).
 - **RFC 002**: strict per-task JSONL output + required Phoenix/OpenTelemetry span attributes.
@@ -20,7 +24,8 @@ The current runnable path is the **native tool-calling orchestrator** (`scripts/
 
 ## Benchmarks
 
-- **SCM-Cert-Bench (119 verified tasks):** TODO (add public link).
+- **SCM-Cert-Bench questions-only subset:** `data/benchmark/golden_tasks_questions_only.jsonl`.
+- The benchmark file included here contains prompts and task metadata only. Gold answers, paper drafting artifacts, and local run outputs are not part of this public archive tip.
 
 ## Repository Layout
 
@@ -30,6 +35,7 @@ The current runnable path is the **native tool-calling orchestrator** (`scripts/
 - `src/orchestrator_native_tool_calling.py` — RFC001 native tool-calling runner.
 - `scripts/run_orchestrator.py` — RFC002 benchmark CLI runner (JSONL + tracing).
 - `outputs/` — runtime logs, JSON reports, and YAAM memory dumps (not committed).
+- `docs/` — public architecture, contract, prompt, and RFC notes retained for reproducibility.
 
 ## Tool Catalog And Discovery
 
@@ -93,15 +99,14 @@ Optional (depending on what you run):
 
 - `OPENROUTER_MODEL`
 - `OPENROUTER_BASE_URL`
-- `YAAM_AGENT_URL`
-- `YAAM_AGENT_API_KEY`
+- `YAAM_PROJECT_ID`
+- `YAAM_SEMANTIC_GATEWAY_URL` (REST v2 memory endpoint for AgenticGraph runs)
 
 Phoenix / OpenTelemetry (optional; used when tracing is enabled):
 
-- `PHOENIX_PROJECT_NAME` (default: `scm-cert-eval-sandbox`)
-- `PHOENIX_COLLECTOR_ENDPOINT` (optional; if not set, the runner builds it from `DEV_NODE_IP` and `PHOENIX_PORT`)
-- `DEV_NODE_IP` (only required when tracing is enabled and `PHOENIX_COLLECTOR_ENDPOINT` is not set)
-- `PHOENIX_PORT` (default: `6006`, only used for endpoint construction)
+- `PHOENIX_PROJECT_NAME`
+- `PHOENIX_COLLECTOR_ENDPOINT`
+- `PHOENIX_BASE_URL` (used by trace-inspection utilities)
 - `PHOENIX_API_KEY` (optional; used for auth when provided)
 - `PHOENIX_CLIENT_HEADERS` (optional; comma-separated `k=v` pairs; `Authorization=Bearer ...` is auto-added when `PHOENIX_API_KEY` is set)
 
@@ -120,13 +125,13 @@ Common examples:
 
 ```bash
 # Full run (with tracing if Phoenix is configured)
-uv run python scripts/run_orchestrator.py --model-id x-ai/grok-4.1-fast --run-mode Tools
+uv run python scripts/run_orchestrator.py --model-id tencent/hy3-preview --run-mode Tools
 
 # Single task (useful for debugging)
-uv run python scripts/run_orchestrator.py --model-id x-ai/grok-4.1-fast --run-mode Tools --task-id task_00123
+uv run python scripts/run_orchestrator.py --model-id tencent/hy3-preview --run-mode Tools --task-id task_00123
 
 # Disable tracing entirely (still writes JSONL)
-uv run python scripts/run_orchestrator.py --no-tracing --model-id x-ai/grok-4.1-fast --run-mode Tools
+uv run python scripts/run_orchestrator.py --no-tracing --model-id tencent/hy3-preview --run-mode Tools
 ```
 
 ### Outputs

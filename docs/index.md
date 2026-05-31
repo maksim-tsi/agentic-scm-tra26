@@ -1,9 +1,10 @@
 # Docs index
 
-This directory is the repository’s **system of record** for agent + evaluator behavior.
-Start here when making changes.
+This directory is the public archive documentation for agent and evaluator behavior.
+Internal development logs, dated experiment reports, and paper-drafting artifacts are intentionally kept out of the public archive tip.
 
 ## Read first
+- `docs/public-archive.md` — archive scope and local-only exclusions.
 - `docs/architecture.md` — repo map and boundaries (what is read-only / versioned).
 - `docs/evaluation/contract.md` — evaluation I/O contracts and scoring expectations.
 
@@ -20,9 +21,3 @@ Start here when making changes.
 - `docs/rfcs/000-ablation-benchmark-matrix.md` — placeholder for the upcoming evaluation ablation matrix.
 - `docs/rfcs/001-native-tool-calling-evaluator.md` — tool calling evaluator design (strict Pydantic boundary; no code execution).
 - `docs/rfcs/002-execution-metrics-telemetry.md` — RFC002 JSONL output schema + required Phoenix/OpenTelemetry attributes.
-
-## Reports
-- `docs/reports/2026-04-02-infra-smoke-test-results.md` — dated implementation and validation results for OpenRouter + Phoenix smoke execution.
-
-## Development Log
-- `docs/DEVLOG.md` — ongoing implementation tracker and developer handoff log.
