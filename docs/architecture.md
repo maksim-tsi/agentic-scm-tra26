@@ -4,7 +4,7 @@
 This repo has two primary evaluation targets:
 
 1) **Naive baseline**: an LLM is prompted to answer without tool execution.
-2) **Agentic MAS**: an external agent endpoint executes with access to deterministic SCM tools.
+2) **Agentic MAS / tool-calling path**: the native orchestrator executes with deterministic SCM tools, and AgenticGraph runs can optionally use YAAM REST v2 as the memory substrate.
 
 Core pieces:
 - `data/benchmark/` provides **questions-only** benchmark inputs (JSONL).
@@ -24,6 +24,7 @@ To keep evaluations reproducible:
 ## Outputs and artifacts
 - Write runtime outputs to `outputs/` (gitignored except `outputs/README.md`).
 - Never write generated files into `data/benchmark/`.
+- Keep paper-drafting notes, dated experiment reports, local traces, and legacy prototypes outside the public archive tip.
 
 ## Dependency management
 - Source of truth for dependencies is `pyproject.toml` + `uv.lock`.

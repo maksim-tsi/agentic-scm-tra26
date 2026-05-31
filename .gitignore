@@ -214,3 +214,13 @@ marimo/_lsp/
 __marimo__/
 venv/
 .env
+
+# Local-only research/archive materials retained outside the public archive tip.
+legacy_v1_archive/
+docs/reports/
+docs/exec-plans/
+docs/DEVLOG.md
+scripts/adhoc/
+scripts/debug_trace_sc_ra_001.py
+scripts/diagnostic_yaam_v2.py
+tests/test_batch_stall_postmortem.py

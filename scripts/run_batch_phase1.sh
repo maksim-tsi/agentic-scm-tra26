@@ -4,7 +4,7 @@
 set -u
 
 MODELS=(
-  "x-ai/grok-4.1-fast"
+  "tencent/hy3-preview"
   "meta-llama/llama-3.1-8b-instruct"
   "deepseek/deepseek-v3.2"
   "google/gemini-2.5-flash-lite"

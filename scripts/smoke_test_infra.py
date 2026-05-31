@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 DEFAULT_MODELS = [
-    "x-ai/grok-4.1-fast",
+    "tencent/hy3-preview",
     "meta-llama/llama-3.1-8b-instruct",
     "deepseek/deepseek-v3.2",
     "google/gemini-2.5-flash-lite",
@@ -429,4 +429,3 @@ def main(argv: list[str]) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))
-
